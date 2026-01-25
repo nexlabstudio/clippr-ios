@@ -77,6 +77,14 @@ public final class Clippr {
             }
         }
     }
+
+    public func createLink(_ parameters: LinkParameters) async throws -> ShortLink {
+        guard isInitialized, let apiClient = apiClient else {
+            throw ClipprError.notInitialized
+        }
+        
+        return try await apiClient.createLink(parameters)
+    }
     
     public func track(_ eventName: String, params: [String: Any]? = nil) async throws {
         guard isInitialized, let apiClient = apiClient, let deviceInfo = deviceInfo else {
@@ -262,6 +270,10 @@ public extension Clippr {
 
     static func getInitialLink(completion: @escaping (ClipprLink?) -> Void) {
         shared.getInitialLink(completion: completion)
+    }
+
+    static func createLink(_ parameters: LinkParameters) async throws -> ShortLink {
+        try await shared.createLink(parameters)
     }
 
     static func track(_ eventName: String, params: [String: Any]? = nil) async throws {

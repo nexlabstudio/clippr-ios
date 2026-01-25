@@ -4,9 +4,10 @@ public enum ClipprError: Error, LocalizedError {
     case notInitialized
     case invalidResponse
     case networkError(Error)
+    case apiError(String)
     case serverError(Int, String?)
     case decodingError(Error)
-    
+
     public var errorDescription: String? {
         switch self {
         case .notInitialized:
@@ -26,24 +27,94 @@ public enum ClipprError: Error, LocalizedError {
 final class APIClient {
     private let config: ClipprConfig
     private let session: URLSession
-    
+
     init(config: ClipprConfig) {
         self.config = config
-        
+
         let sessionConfig = URLSessionConfiguration.default
         sessionConfig.timeoutIntervalForRequest = config.timeout
         sessionConfig.timeoutIntervalForResource = config.timeout * 2
         self.session = URLSession(configuration: sessionConfig)
     }
-    
+
+    func createLink(_ parameters: LinkParameters) async throws -> ShortLink {
+        let url = URL(string: "\(config.baseURL)/sdk/links")!
+        var request = URLRequest(url: url)
+        request.httpMethod = "POST"
+        request.setValue("application/json", forHTTPHeaderField: "Content-Type")
+        request.setValue(config.apiKey, forHTTPHeaderField: "X-API-Key")
+        var body: [String: Any] = [
+            "deep_link_path": parameters.path
+        ]
+
+        if let metadata = parameters.metadata {
+            body["metadata"] = metadata
+        }
+
+        if let campaign = parameters.campaign {
+            body["campaign"] = campaign
+        }
+
+        if let source = parameters.source {
+            body["source"] = source
+        }
+
+        if let medium = parameters.medium {
+            body["medium"] = medium
+        }
+
+        if let alias = parameters.alias {
+            body["alias"] = alias
+        }
+
+        if let socialTags = parameters.socialTags {
+            var ogTags: [String: String] = [:]
+            if let title = socialTags.title {
+                ogTags["og_title"] = title
+            }
+            if let description = socialTags.description {
+                ogTags["og_description"] = description
+            }
+            if let imageUrl = socialTags.imageUrl {
+                ogTags["og_image_url"] = imageUrl
+            }
+            if !ogTags.isEmpty {
+                body.merge(ogTags) { _, new in new }
+            }
+        }
+
+        request.httpBody = try JSONSerialization.data(withJSONObject: body)
+
+        let (data, response) = try await self.session.data(for: request)
+
+        guard let httpResponse = response as? HTTPURLResponse else {
+            throw ClipprError.networkError(NSError(domain: "Clippr", code: -1))
+        }
+
+        guard httpResponse.statusCode == 201 else {
+            if let errorResponse = try? JSONDecoder().decode(ErrorResponseDTO.self, from: data) {
+                throw ClipprError.apiError(errorResponse.error)
+            }
+            throw ClipprError.apiError("Failed to create link: \(httpResponse.statusCode)")
+        }
+
+        let linkResponse = try JSONDecoder().decode(CreateLinkResponse.self, from: data)
+
+        return ShortLink(
+            url: linkResponse.shortUrl,
+            shortCode: linkResponse.shortCode,
+            path: parameters.path
+        )
+    }
+
     func match(payload: [String: Any]) async throws -> MatchResponse? {
         let endpoint = config.baseURL.appendingPathComponent("/v1/sdk/match")
         let response: MatchResponseDTO = try await post(endpoint: endpoint, body: payload)
-        
+
         guard response.matched else {
             return nil
         }
-        
+
         return MatchResponse(
             deepLinkPath: response.deepLinkPath ?? "",
             metadata: response.metadata,
@@ -58,66 +129,69 @@ final class APIClient {
             }
         )
     }
-    
+
     func trackInstall(payload: [String: Any]) async throws {
         let endpoint = config.baseURL.appendingPathComponent("/v1/sdk/install")
         let _: MessageResponseDTO = try await post(endpoint: endpoint, body: payload)
         Logger.debug("Install tracked successfully")
     }
-    
-    func trackEvent(deviceId: String, eventName: String, params: [String: Any]?, revenue: Double?, currency: String?) async throws {
+
+    func trackEvent(
+        deviceId: String, eventName: String, params: [String: Any]?, revenue: Double?,
+        currency: String?
+    ) async throws {
         let endpoint = config.baseURL.appendingPathComponent("/v1/sdk/events")
-        
+
         var body: [String: Any] = [
             "device_id": deviceId,
-            "event_name": eventName
+            "event_name": eventName,
         ]
-        
+
         if let params = params {
             body["event_params"] = params
         }
-        
+
         if let revenue = revenue {
             body["revenue"] = revenue
         }
-        
+
         if let currency = currency {
             body["currency"] = currency
         }
-        
+
         let _: MessageResponseDTO = try await post(endpoint: endpoint, body: body)
         Logger.debug("Event '\(eventName)' tracked successfully")
     }
-    
+
     private func post<T: Decodable>(endpoint: URL, body: [String: Any]) async throws -> T {
         var request = URLRequest(url: endpoint)
         request.httpMethod = "POST"
         request.setValue("application/json", forHTTPHeaderField: "Content-Type")
         request.setValue(config.apiKey, forHTTPHeaderField: "X-API-Key")
-        
+
         let jsonData = try JSONSerialization.data(withJSONObject: body)
         request.httpBody = jsonData
-        
+
         Logger.debug("POST \(endpoint.path)")
         if config.debug {
             if let bodyStr = String(data: jsonData, encoding: .utf8) {
                 Logger.debug("Body: \(bodyStr)")
             }
         }
-        
+
         let (data, response) = try await session.data(for: request)
-        
+
         guard let httpResponse = response as? HTTPURLResponse else {
             throw ClipprError.invalidResponse
         }
-        
+
         Logger.debug("Response status: \(httpResponse.statusCode)")
-        
+
         guard (200...299).contains(httpResponse.statusCode) else {
             let errorMessage = try? JSONDecoder().decode(ErrorResponseDTO.self, from: data).error
             throw ClipprError.serverError(httpResponse.statusCode, errorMessage)
         }
-        
+
         do {
             let decoded = try JSONDecoder().decode(T.self, from: data)
             return decoded
@@ -143,7 +217,7 @@ private struct MatchResponseDTO: Decodable {
     let deepLinkPath: String?
     let metadata: [String: AnyCodable]?
     let attribution: AttributionDTO?
-    
+
     enum CodingKeys: String, CodingKey {
         case matched
         case matchType = "match_type"
@@ -158,6 +232,20 @@ private struct AttributionDTO: Decodable {
     let campaign: String?
     let source: String?
     let medium: String?
+}
+
+private struct CreateLinkResponse: Decodable {
+    let id: String
+    let shortCode: String
+    let shortUrl: String
+    let deepLinkPath: String
+
+    enum CodingKeys: String, CodingKey {
+        case id
+        case shortCode = "short_code"
+        case shortUrl = "short_url"
+        case deepLinkPath = "deep_link_path"
+    }
 }
 
 private struct MessageResponseDTO: Decodable {
