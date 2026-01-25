@@ -49,6 +49,10 @@ struct ContentView: View {
                     DeepLinkCard(link: link)
                 }
 
+                if let shortLink = viewModel.createdLink {
+                    ShortLinkCard(link: shortLink)
+                }
+
                 ActionButtons(viewModel: viewModel)
                 
                 Spacer()
@@ -65,6 +69,7 @@ struct ContentView: View {
 @MainActor
 class DeepLinkViewModel: ObservableObject {
     @Published var currentLink: ClipprLink?
+    @Published var createdLink: ShortLink?
     @Published var status: String = "Initializing..."
     @Published var eventsSent: Int = 0
     
@@ -119,6 +124,22 @@ class DeepLinkViewModel: ObservableObject {
             )
             eventsSent += 1
             status = "Purchase tracked!"
+        } catch {
+            status = "Error: \(error.localizedDescription)"
+        }
+    }
+
+    func createShareLink() async {
+        do {
+            let params = LinkParameters(
+                path: "/product/demo-123",
+                metadata: ["product_name": "Demo Product"],
+                campaign: "demo_campaign",
+                source: "app",
+                medium: "share"
+            )
+            createdLink = try await Clippr.createLink(params)
+            status = "Link created!"
         } catch {
             status = "Error: \(error.localizedDescription)"
         }
@@ -213,11 +234,40 @@ struct InfoRow: View {
     }
 }
 
+struct ShortLinkCard: View {
+    let link: ShortLink
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            Label("Created Link", systemImage: "link.badge.plus")
+                .font(.headline)
+
+            InfoRow(label: "URL", value: link.url)
+            InfoRow(label: "Short Code", value: link.shortCode)
+            InfoRow(label: "Path", value: link.path)
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .padding()
+        .background(Color(.systemGray6))
+        .cornerRadius(12)
+    }
+}
+
 struct ActionButtons: View {
     @ObservedObject var viewModel: DeepLinkViewModel
-    
+
     var body: some View {
         VStack(spacing: 12) {
+            Button {
+                Task {
+                    await viewModel.createShareLink()
+                }
+            } label: {
+                Label("Create Share Link", systemImage: "link.badge.plus")
+                    .frame(maxWidth: .infinity)
+            }
+            .buttonStyle(.borderedProminent)
+
             Button {
                 Task {
                     await viewModel.trackTestEvent()
@@ -226,8 +276,8 @@ struct ActionButtons: View {
                 Label("Track Test Event", systemImage: "paperplane")
                     .frame(maxWidth: .infinity)
             }
-            .buttonStyle(.borderedProminent)
-            
+            .buttonStyle(.bordered)
+
             Button {
                 Task {
                     await viewModel.trackPurchase()

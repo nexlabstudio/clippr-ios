@@ -10,7 +10,7 @@ Add the following to your `Package.swift`:
 
 ```swift
 dependencies: [
-    .package(url: "https://github.com/nexlabstudio/clippr-ios.git", from: "0.0.1")
+    .package(url: "https://github.com/nexlabstudio/clippr-ios.git", from: "0.0.2")
 ]
 ```
 
@@ -19,7 +19,7 @@ Or in Xcode: File → Add Packages → Enter the repository URL.
 ### CocoaPods
 
 ```ruby
-pod 'ClipprSDK', '~> 0.0.1'
+pod 'ClipprSDK', '~> 0.0.2'
 ```
 
 ## Quick Start
@@ -139,7 +139,33 @@ struct MyApp: App {
 }
 ```
 
-### 5. Track Events (Optional)
+### 5. Create Short Links (Optional)
+
+```swift
+// Create a basic short link
+let params = LinkParameters(path: "/product/123")
+let link = try await Clippr.createLink(params)
+print("Share this link: \(link.url)")
+
+// Create a link with attribution and social tags
+let params = LinkParameters(
+    path: "/product/123",
+    metadata: ["product_name": "Cool Shoes"],
+    campaign: "summer_sale",
+    source: "instagram",
+    medium: "social",
+    socialTags: SocialMetaTags(
+        title: "Check out these shoes!",
+        description: "50% off summer sale",
+        imageUrl: "https://example.com/shoes.jpg"
+    ),
+    alias: "summer-shoes"  // Custom short code
+)
+let link = try await Clippr.createLink(params)
+// Result: https://yourapp.clppr.xyz/summer-shoes
+```
+
+### 6. Track Events (Optional)
 
 ```swift
 // Track a simple event
@@ -177,6 +203,7 @@ Clippr.track("button_clicked", params: nil) { error in
 | `getInitialLink()` | Get the link that opened the app |
 | `onLink` | Callback for links received while app is running |
 | `handleUniversalLink(_:)` | Handle incoming Universal Links |
+| `createLink(_:)` | Create a short link for sharing |
 | `track(_:params:)` | Track a custom event |
 | `trackRevenue(_:revenue:currency:params:)` | Track a revenue event |
 
@@ -197,6 +224,26 @@ Clippr.track("button_clicked", params: nil) { error in
 | `.direct` | User clicked link with app installed |
 | `.probabilistic` | Matched via device fingerprinting |
 | `.none` | No match found |
+
+### LinkParameters
+
+| Property | Type | Description |
+|----------|------|-------------|
+| `path` | `String` | Deep link path (e.g., "/product/123") |
+| `metadata` | `[String: Any]?` | Custom metadata to attach |
+| `campaign` | `String?` | Campaign name for attribution |
+| `source` | `String?` | Traffic source (e.g., "facebook") |
+| `medium` | `String?` | Marketing medium (e.g., "social") |
+| `socialTags` | `SocialMetaTags?` | Open Graph tags for previews |
+| `alias` | `String?` | Custom short code |
+
+### ShortLink
+
+| Property | Type | Description |
+|----------|------|-------------|
+| `url` | `String` | Full short URL |
+| `shortCode` | `String` | The short code or alias |
+| `path` | `String` | Original deep link path |
 
 ## Debug Mode
 
