@@ -40,11 +40,8 @@ final class APIClient {
     }
 
     func createLink(_ parameters: LinkParameters) async throws -> ShortLink {
-        let url = URL(string: "\(config.baseURL)/sdk/links")!
-        var request = URLRequest(url: url)
-        request.httpMethod = "POST"
-        request.setValue("application/json", forHTTPHeaderField: "Content-Type")
-        request.setValue(config.apiKey, forHTTPHeaderField: "X-API-Key")
+        let endpoint = config.baseURL.appendingPathComponent("/v1/sdk/links")
+
         var body: [String: Any] = [
             "deep_link_path": parameters.path
         ]
@@ -52,59 +49,35 @@ final class APIClient {
         if let metadata = parameters.metadata {
             body["metadata"] = metadata
         }
-
         if let campaign = parameters.campaign {
             body["campaign"] = campaign
         }
-
         if let source = parameters.source {
             body["source"] = source
         }
-
         if let medium = parameters.medium {
             body["medium"] = medium
         }
-
         if let alias = parameters.alias {
             body["alias"] = alias
         }
-
         if let socialTags = parameters.socialTags {
-            var ogTags: [String: String] = [:]
             if let title = socialTags.title {
-                ogTags["og_title"] = title
+                body["og_title"] = title
             }
             if let description = socialTags.description {
-                ogTags["og_description"] = description
+                body["og_description"] = description
             }
             if let imageUrl = socialTags.imageUrl {
-                ogTags["og_image_url"] = imageUrl
-            }
-            if !ogTags.isEmpty {
-                body.merge(ogTags) { _, new in new }
+                body["og_image_url"] = imageUrl
             }
         }
 
-        request.httpBody = try JSONSerialization.data(withJSONObject: body)
-
-        let (data, response) = try await self.session.data(for: request)
-
-        guard let httpResponse = response as? HTTPURLResponse else {
-            throw ClipprError.networkError(NSError(domain: "Clippr", code: -1))
-        }
-
-        guard httpResponse.statusCode == 201 else {
-            if let errorResponse = try? JSONDecoder().decode(ErrorResponseDTO.self, from: data) {
-                throw ClipprError.apiError(errorResponse.error)
-            }
-            throw ClipprError.apiError("Failed to create link: \(httpResponse.statusCode)")
-        }
-
-        let linkResponse = try JSONDecoder().decode(CreateLinkResponse.self, from: data)
+        let response: CreateLinkResponse = try await post(endpoint: endpoint, body: body)
 
         return ShortLink(
-            url: linkResponse.shortUrl,
-            shortCode: linkResponse.shortCode,
+            url: response.shortUrl,
+            shortCode: response.shortCode,
             path: parameters.path
         )
     }
