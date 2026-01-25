@@ -16,6 +16,8 @@ public enum ClipprError: Error, LocalizedError {
             return "Invalid response from server"
         case .networkError(let error):
             return "Network error: \(error.localizedDescription)"
+        case .apiError(let message):
+            return "API error: \(message)"
         case .serverError(let code, let message):
             return "Server error \(code): \(message ?? "Unknown")"
         case .decodingError(let error):
