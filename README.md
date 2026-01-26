@@ -10,7 +10,7 @@ Add the following to your `Package.swift`:
 
 ```swift
 dependencies: [
-    .package(url: "https://github.com/nexlabstudio/clippr-ios.git", from: "0.0.3")
+    .package(url: "https://github.com/nexlabstudio/clippr-ios.git", from: "0.0.4")
 ]
 ```
 
@@ -19,7 +19,7 @@ Or in Xcode: File → Add Packages → Enter the repository URL.
 ### CocoaPods
 
 ```ruby
-pod 'ClipprSDK', '~> 0.0.3'
+pod 'ClipprSDK', '~> 0.0.4'
 ```
 
 ## Quick Start
