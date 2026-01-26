@@ -6,7 +6,7 @@ public struct ClipprConfig {
     public let timeout: TimeInterval
     public let baseURL: URL
 
-    public static let defaultBaseURL = URL(string: "https://api.clppr.xyz")!
+    public static let defaultBaseURL = URL(string: "https://api.clppr.xyz/v1")!
     
     public init(
         apiKey: String,

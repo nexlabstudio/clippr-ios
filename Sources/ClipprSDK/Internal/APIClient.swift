@@ -40,7 +40,7 @@ final class APIClient {
     }
 
     func createLink(_ parameters: LinkParameters) async throws -> ShortLink {
-        let endpoint = config.baseURL.appendingPathComponent("/v1/sdk/links")
+        let endpoint = config.baseURL.appendingPathComponent("/sdk/links")
 
         var body: [String: Any] = [
             "deep_link_path": parameters.path
@@ -63,13 +63,13 @@ final class APIClient {
         }
         if let socialTags = parameters.socialTags {
             if let title = socialTags.title {
-                body["og_title"] = title
+                body["social_title"] = title
             }
             if let description = socialTags.description {
-                body["og_description"] = description
+                body["social_description"] = description
             }
             if let imageUrl = socialTags.imageUrl {
-                body["og_image_url"] = imageUrl
+                body["social_image_url"] = imageUrl
             }
         }
 
@@ -83,7 +83,7 @@ final class APIClient {
     }
 
     func match(payload: [String: Any]) async throws -> MatchResponse? {
-        let endpoint = config.baseURL.appendingPathComponent("/v1/sdk/match")
+        let endpoint = config.baseURL.appendingPathComponent("/sdk/match")
         let response: MatchResponseDTO = try await post(endpoint: endpoint, body: payload)
 
         guard response.matched else {
@@ -106,7 +106,7 @@ final class APIClient {
     }
 
     func trackInstall(payload: [String: Any]) async throws {
-        let endpoint = config.baseURL.appendingPathComponent("/v1/sdk/install")
+        let endpoint = config.baseURL.appendingPathComponent("/sdk/install")
         let _: MessageResponseDTO = try await post(endpoint: endpoint, body: payload)
         Logger.debug("Install tracked successfully")
     }
@@ -115,7 +115,7 @@ final class APIClient {
         deviceId: String, eventName: String, params: [String: Any]?, revenue: Double?,
         currency: String?
     ) async throws {
-        let endpoint = config.baseURL.appendingPathComponent("/v1/sdk/events")
+        let endpoint = config.baseURL.appendingPathComponent("/sdk/events")
 
         var body: [String: Any] = [
             "device_id": deviceId,
