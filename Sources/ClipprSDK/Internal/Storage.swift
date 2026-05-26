@@ -9,6 +9,9 @@ final class Storage {
         static let deviceId = "clippr_device_id"
         static let hasCheckedDeferredLink = "clippr_checked_deferred"
         static let lastDeferredLinkPath = "clippr_last_deferred_path"
+        static let skanConversionValue = "clippr_skan_conversion_value"
+        static let skanEventCount = "clippr_skan_event_count"
+        static let skanTotalRevenue = "clippr_skan_total_revenue"
     }
     
     var deviceId: String {
@@ -36,6 +39,21 @@ final class Storage {
     var lastDeferredLinkPath: String? {
         get { defaults.string(forKey: Keys.lastDeferredLinkPath) }
         set { defaults.set(newValue, forKey: Keys.lastDeferredLinkPath) }
+    }
+
+    var skanConversionValue: Int {
+        get { defaults.integer(forKey: Keys.skanConversionValue) }
+        set { defaults.set(newValue, forKey: Keys.skanConversionValue) }
+    }
+
+    var skanEventCount: Int {
+        get { defaults.integer(forKey: Keys.skanEventCount) }
+        set { defaults.set(newValue, forKey: Keys.skanEventCount) }
+    }
+
+    var skanTotalRevenue: Double {
+        get { defaults.double(forKey: Keys.skanTotalRevenue) }
+        set { defaults.set(newValue, forKey: Keys.skanTotalRevenue) }
     }
     
     private func saveToKeychain(key: String, value: String) {

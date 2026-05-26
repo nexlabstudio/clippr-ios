@@ -2,27 +2,18 @@ import Foundation
 
 /// Parameters for creating a short link
 public struct LinkParameters {
-    /// Deep link path (e.g., "/product/123")
     public let path: String
-    
-    /// Custom metadata to attach to the link
     public var metadata: [String: Any]?
-    
-    /// Campaign name for attribution
     public var campaign: String?
-    
-    /// Traffic source (e.g., "facebook", "twitter")
     public var source: String?
-    
-    /// Marketing medium (e.g., "social", "email")
     public var medium: String?
-    
-    /// Social meta tags for link previews
     public var socialTags: SocialMetaTags?
-    
-    /// Custom alias for the short link (e.g., "summer-sale" → yourapp.clppr.xyz/summer-sale)
     public var alias: String?
-    
+    public var iosFallbackUrl: String?
+    public var androidFallbackUrl: String?
+    public var webFallbackUrl: String?
+    public var expiresAt: Date?
+
     public init(
         path: String,
         metadata: [String: Any]? = nil,
@@ -30,7 +21,11 @@ public struct LinkParameters {
         source: String? = nil,
         medium: String? = nil,
         socialTags: SocialMetaTags? = nil,
-        alias: String? = nil
+        alias: String? = nil,
+        iosFallbackUrl: String? = nil,
+        androidFallbackUrl: String? = nil,
+        webFallbackUrl: String? = nil,
+        expiresAt: Date? = nil
     ) {
         self.path = path
         self.metadata = metadata
@@ -39,6 +34,10 @@ public struct LinkParameters {
         self.medium = medium
         self.socialTags = socialTags
         self.alias = alias
+        self.iosFallbackUrl = iosFallbackUrl
+        self.androidFallbackUrl = androidFallbackUrl
+        self.webFallbackUrl = webFallbackUrl
+        self.expiresAt = expiresAt
     }
 }
 

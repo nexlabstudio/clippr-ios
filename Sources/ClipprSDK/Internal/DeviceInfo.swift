@@ -92,12 +92,30 @@ final class DeviceInfo {
             "timezone": timezone,
             "language": language
         ]
-        
+
         if let idfa = advertisingId {
             payload["advertising_id"] = idfa
         }
-        
+
+        if let clipboard = readClipboardLink() {
+            payload["clipboard_url"] = clipboard
+        }
+
         return payload
+    }
+
+    private func readClipboardLink() -> String? {
+        if #available(iOS 14, *), !UIPasteboard.general.hasURLs {
+            return nil
+        }
+        guard let url = UIPasteboard.general.url,
+              let host = url.host?.lowercased() else {
+            return nil
+        }
+        guard host == "clppr.xyz" || host.hasSuffix(".clppr.xyz") else {
+            return nil
+        }
+        return url.absoluteString
     }
     
     func buildInstallPayload() -> [String: Any] {

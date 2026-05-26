@@ -61,6 +61,18 @@ final class APIClient {
         if let alias = parameters.alias {
             body["alias"] = alias
         }
+        if let v = parameters.iosFallbackUrl {
+            body["ios_fallback_url"] = v
+        }
+        if let v = parameters.androidFallbackUrl {
+            body["android_fallback_url"] = v
+        }
+        if let v = parameters.webFallbackUrl {
+            body["web_fallback_url"] = v
+        }
+        if let expiresAt = parameters.expiresAt {
+            body["expires_at"] = ISO8601DateFormatter().string(from: expiresAt)
+        }
         if let socialTags = parameters.socialTags {
             if let title = socialTags.title {
                 body["social_title"] = title
@@ -111,6 +123,11 @@ final class APIClient {
         Logger.debug("Install tracked successfully")
     }
 
+    func fetchSKANConfig() async throws -> SKANConfig {
+        let endpoint = config.baseURL.appendingPathComponent("/sdk/skan/config")
+        return try await get(endpoint: endpoint)
+    }
+
     func trackEvent(
         deviceId: String, eventName: String, params: [String: Any]?, revenue: Double?,
         currency: String?
@@ -136,6 +153,30 @@ final class APIClient {
 
         let _: MessageResponseDTO = try await post(endpoint: endpoint, body: body)
         Logger.debug("Event '\(eventName)' tracked successfully")
+    }
+
+    private func get<T: Decodable>(endpoint: URL) async throws -> T {
+        var request = URLRequest(url: endpoint)
+        request.httpMethod = "GET"
+        request.setValue("application/json", forHTTPHeaderField: "Content-Type")
+        request.setValue(config.apiKey, forHTTPHeaderField: "X-API-Key")
+
+        Logger.debug("GET \(endpoint.path)")
+        let (data, response) = try await session.data(for: request)
+
+        guard let httpResponse = response as? HTTPURLResponse else {
+            throw ClipprError.invalidResponse
+        }
+        guard (200...299).contains(httpResponse.statusCode) else {
+            let errorMessage = try? JSONDecoder().decode(ErrorResponseDTO.self, from: data).error
+            throw ClipprError.serverError(httpResponse.statusCode, errorMessage)
+        }
+        do {
+            return try JSONDecoder().decode(T.self, from: data)
+        } catch {
+            Logger.error("Decoding error: \(error)")
+            throw ClipprError.decodingError(error)
+        }
     }
 
     private func post<T: Decodable>(endpoint: URL, body: [String: Any]) async throws -> T {

@@ -8,7 +8,8 @@ public final class Clippr {
     private var apiClient: APIClient?
     private var storage: Storage?
     private var deviceInfo: DeviceInfo?
-    
+    private var skanManager: SKANManager?
+
     public private(set) var isInitialized: Bool = false
     public var onLink: ((ClipprLink) -> Void)?
     private var pendingInitialLink: ClipprLink?
@@ -38,13 +39,27 @@ public final class Clippr {
         instance.storage = Storage()
         instance.deviceInfo = DeviceInfo(storage: instance.storage!)
         instance.apiClient = APIClient(config: config)
+        instance.skanManager = SKANManager(storage: instance.storage!)
         instance.isInitialized = true
-        
+
         Logger.isEnabled = config.debug
         Logger.info("Clippr SDK initialized")
+        instance.loadSKANConfig()
         instance.startDeferredLinkCheck()
-        
+
         return instance
+    }
+
+    private func loadSKANConfig() {
+        guard let apiClient = apiClient, let skanManager = skanManager else { return }
+        Task {
+            do {
+                let cfg = try await apiClient.fetchSKANConfig()
+                skanManager.update(config: cfg)
+            } catch {
+                Logger.error("Failed to load SKAN config: \(error)")
+            }
+        }
     }
     
     public func getInitialLink() async -> ClipprLink? {
@@ -90,7 +105,7 @@ public final class Clippr {
         guard isInitialized, let apiClient = apiClient, let deviceInfo = deviceInfo else {
             throw ClipprError.notInitialized
         }
-        
+
         try await apiClient.trackEvent(
             deviceId: deviceInfo.deviceId,
             eventName: eventName,
@@ -98,8 +113,9 @@ public final class Clippr {
             revenue: nil,
             currency: nil
         )
+        skanManager?.recordEvent(name: eventName, revenue: nil)
     }
-    
+
     public func trackRevenue(
         _ eventName: String,
         revenue: Double,
@@ -109,7 +125,7 @@ public final class Clippr {
         guard isInitialized, let apiClient = apiClient, let deviceInfo = deviceInfo else {
             throw ClipprError.notInitialized
         }
-        
+
         try await apiClient.trackEvent(
             deviceId: deviceInfo.deviceId,
             eventName: eventName,
@@ -117,6 +133,7 @@ public final class Clippr {
             revenue: revenue,
             currency: currency
         )
+        skanManager?.recordEvent(name: eventName, revenue: revenue)
     }
     
     public func track(_ eventName: String, params: [String: Any]? = nil, completion: ((Error?) -> Void)? = nil) {
