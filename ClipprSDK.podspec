@@ -1,6 +1,6 @@
 Pod::Spec.new do |s|
   s.name             = 'ClipprSDK'
-  s.version          = '0.0.5'
+  s.version          = '0.0.6'
   s.summary          = 'Deep linking and mobile attribution SDK for iOS'
   s.description      = <<-DESC
     Clippr SDK provides seamless deep linking and attribution for iOS apps.

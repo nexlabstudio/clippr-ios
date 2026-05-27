@@ -128,6 +128,19 @@ final class APIClient {
         return try await get(endpoint: endpoint)
     }
 
+    /// Resolve a short code or alias to full link details. Used to enrich
+    /// Universal Link clicks with backend-stored campaign/source/medium and
+    /// the resolved deep-link path.
+    func resolveLink(identifier: String) async throws -> ResolvedLink {
+        let endpoint = config.baseURL.appendingPathComponent("/sdk/links/resolve/\(identifier)")
+        let dto: ResolvedLinkDTO = try await get(endpoint: endpoint)
+        return ResolvedLink(
+            deepLinkPath: dto.deepLinkPath,
+            metadata: dto.metadata,
+            attribution: Attribution(campaign: dto.campaign, source: dto.source, medium: dto.medium)
+        )
+    }
+
     func trackEvent(
         deviceId: String, eventName: String, params: [String: Any]?, revenue: Double?,
         currency: String?
@@ -266,6 +279,28 @@ private struct CreateLinkResponse: Decodable {
 
 private struct MessageResponseDTO: Decodable {
     let message: String
+}
+
+struct ResolvedLink {
+    let deepLinkPath: String
+    let metadata: [String: AnyCodable]?
+    let attribution: Attribution?
+}
+
+private struct ResolvedLinkDTO: Decodable {
+    let deepLinkPath: String
+    let campaign: String?
+    let source: String?
+    let medium: String?
+    let metadata: [String: AnyCodable]?
+
+    enum CodingKeys: String, CodingKey {
+        case deepLinkPath = "deep_link_path"
+        case campaign
+        case source
+        case medium
+        case metadata
+    }
 }
 
 private struct ErrorResponseDTO: Decodable {

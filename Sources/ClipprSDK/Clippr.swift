@@ -153,14 +153,59 @@ public final class Clippr {
             Logger.error("SDK not initialized")
             return false
         }
-        
+
         Logger.debug("Handling Universal Link: \(url)")
 
-        guard let link = parseUniversalLink(url) else {
+        guard let localLink = parseUniversalLink(url) else {
             Logger.debug("URL not a Clippr link")
             return false
         }
 
+        // Deliver the local parse immediately so callers don't wait on the
+        // network, then asynchronously try to enrich with backend-stored
+        // attribution + canonical deep-link path.
+        deliver(localLink)
+
+        Task { [weak self] in
+            guard let self = self, let enriched = await self.enrich(localLink) else { return }
+            self.deliver(enriched)
+        }
+
+        return true
+    }
+
+    /// Looks up the short code on the backend and merges its attribution +
+    /// deep-link path into the locally-parsed link. URL query params win over
+    /// stored metadata.
+    private func enrich(_ link: ClipprLink) async -> ClipprLink? {
+        guard let apiClient = apiClient, let shortCode = link.shortCode else {
+            return nil
+        }
+        do {
+            let resolved = try await apiClient.resolveLink(identifier: shortCode)
+            var merged: [String: AnyCodable] = [:]
+            if let stored = resolved.metadata {
+                merged.merge(stored, uniquingKeysWith: { _, new in new })
+            }
+            if let urlMeta = link.metadata {
+                merged.merge(urlMeta, uniquingKeysWith: { _, new in new })
+            }
+            return ClipprLink(
+                path: resolved.deepLinkPath,
+                url: link.url,
+                shortCode: link.shortCode,
+                metadata: merged.isEmpty ? nil : merged,
+                attribution: resolved.attribution,
+                matchType: link.matchType,
+                confidence: link.confidence
+            )
+        } catch {
+            Logger.error("Failed to resolve link \(shortCode): \(error)")
+            return nil
+        }
+    }
+
+    private func deliver(_ link: ClipprLink) {
         if !initialLinkRetrieved {
             Logger.debug("Storing as initial link")
             pendingInitialLink = link
@@ -170,8 +215,6 @@ public final class Clippr {
                 self.onLink?(link)
             }
         }
-        
-        return true
     }
     
     @discardableResult
@@ -245,7 +288,7 @@ public final class Clippr {
         if path.isEmpty || path == "/" {
             return nil
         }
-        
+
         var metadata: [String: AnyCodable]? = nil
         if let components = URLComponents(url: url, resolvingAgainstBaseURL: false),
            let queryItems = components.queryItems, !queryItems.isEmpty {
@@ -255,9 +298,17 @@ public final class Clippr {
             }
             metadata = meta
         }
-        
+
+        // Short code is the first path segment ("/dtjo6okc" → "dtjo6okc").
+        let shortCode = path
+            .split(separator: "/", omittingEmptySubsequences: true)
+            .first
+            .map(String.init)
+
         return ClipprLink(
             path: path,
+            url: url.absoluteString,
+            shortCode: shortCode,
             metadata: metadata,
             attribution: nil,
             matchType: .direct,
