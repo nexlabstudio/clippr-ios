@@ -161,14 +161,13 @@ public final class Clippr {
             return false
         }
 
-        // Deliver the local parse immediately so callers don't wait on the
-        // network, then asynchronously try to enrich with backend-stored
-        // attribution + canonical deep-link path.
-        deliver(localLink)
-
+        // Try to enrich with backend-stored attribution + canonical deep-link
+        // path. Fall back to the local parse on any failure so onLink always
+        // fires exactly once per delivery.
         Task { [weak self] in
-            guard let self = self, let enriched = await self.enrich(localLink) else { return }
-            self.deliver(enriched)
+            guard let self = self else { return }
+            let final = (await self.enrich(localLink)) ?? localLink
+            self.deliver(final)
         }
 
         return true
